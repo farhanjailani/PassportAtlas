@@ -15,6 +15,9 @@ export default function MapFilters({
   access,
   setAccess,
   visaStatus,
+  onDart,
+  dartDisabled,
+  selectedCityLabel,
 }: {
   passportOptions: PassportOption[];
   passportCode: string;
@@ -22,6 +25,9 @@ export default function MapFilters({
   access: AccessToggles;
   setAccess: (next: AccessToggles) => void;
   visaStatus: 'idle' | 'loading' | 'loaded' | 'error';
+  onDart: () => void;
+  dartDisabled: boolean;
+  selectedCityLabel: string | null;
 }) {
   return (
     <div className="absolute left-3 top-3 z-[1000] w-[min(360px,calc(100vw-24px))] rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-sm dark:border-white/10 dark:bg-black/60">
@@ -40,6 +46,26 @@ export default function MapFilters({
       </div>
 
       <div className="mt-3 grid gap-2">
+        <div className="flex items-center gap-2 justify-between">
+          <div className="min-w-0 flex-1 text-xs opacity-80 truncate pr-2">
+            {selectedCityLabel ? <>Selected: {selectedCityLabel}</> : 'No city selected'}
+          </div>
+          <button
+            type="button"
+            onClick={onDart}
+            disabled={dartDisabled}
+            className="h-9 w-11 shrink-0 grid place-items-center rounded-md border border-black/10 bg-white/70 hover:bg-white disabled:opacity-50 disabled:hover:bg-white/70 dark:border-white/10 dark:bg-black/30 dark:hover:bg-black/40"
+            title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
+          >
+            <img
+              src="/dart-aim-svgrepo-com.svg"
+              alt="Dart"
+              className="h-6 w-6"
+              draggable={false}
+            />
+          </button>
+        </div>
+
         <label className="grid gap-1">
           <div className="text-xs font-medium opacity-80">Passport holder</div>
           <select
