@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/PassportAtlas";
 
 const nextConfig: NextConfig = {
   output: "export",
