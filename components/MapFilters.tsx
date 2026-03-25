@@ -18,6 +18,7 @@ export default function MapFilters({
   onDart,
   dartDisabled,
   selectedCityLabel,
+  dartIconSrc,
 }: {
   passportOptions: PassportOption[];
   passportCode: string;
@@ -28,6 +29,7 @@ export default function MapFilters({
   onDart: () => void;
   dartDisabled: boolean;
   selectedCityLabel: string | null;
+  dartIconSrc: string;
 }) {
   return (
     <div className="absolute left-3 top-3 z-[1000] w-[min(360px,calc(100vw-24px))] rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-sm dark:border-white/10 dark:bg-black/60">
@@ -58,7 +60,7 @@ export default function MapFilters({
             title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
           >
             <img
-              src="/dart-aim-svgrepo-com.svg"
+              src={dartIconSrc}
               alt="Dart"
               className="h-6 w-6"
               draggable={false}

@@ -100,6 +100,9 @@ function MapFlyTo({
 }
 
 export default function WorldMap() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const withBasePath = (path: string) => `${basePath}${path}`;
+
   const [countriesGeoJson, setCountriesGeoJson] = useState<any | null>(null);
   const [citiesGeoJson, setCitiesGeoJson] = useState<any | null>(null);
 
@@ -122,10 +125,10 @@ export default function WorldMap() {
     let cancelled = false;
 
     (async () => {
-      const countriesRes = await fetch('/data/countries.geojson');
+      const countriesRes = await fetch(withBasePath('/data/countries.geojson'));
       if (!cancelled && countriesRes.ok) setCountriesGeoJson(await countriesRes.json());
 
-      const citiesRes = await fetch('/data/cities.geojson');
+      const citiesRes = await fetch(withBasePath('/data/cities.geojson'));
       if (!cancelled && citiesRes.ok) setCitiesGeoJson(await citiesRes.json());
     })();
 
@@ -334,6 +337,7 @@ export default function WorldMap() {
         onDart={onDart}
         dartDisabled={dartDisabled}
         selectedCityLabel={selectedCityLabel}
+        dartIconSrc={withBasePath('/dart-aim-svgrepo-com.svg')}
       />
 
       <MapContainer
