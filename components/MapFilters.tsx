@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 type PassportOption = { code: string; name: string };
 import type { VisaInfo } from './WorldMap';
@@ -15,6 +15,37 @@ export type AccessToggles = {
 
 export type ContinentKey = 'Europe' | 'Asia' | 'Africa' | 'North America' | 'South America' | 'Oceania';
 export type CountryMode = 'block' | 'target';
+
+// Define CountryFeatureProperties as it's used by CountryFeature
+export type CountryFeatureProperties = {
+  name?: string;
+  iso_a2?: string;
+  iso_a3?: string;
+  continent?: ContinentKey;
+  [key: string]: any;
+};
+
+interface CountryFeature {
+  type: 'Feature';
+  properties: CountryFeatureProperties;
+  geometry: any;
+}
+
+// Define CityFeature as it's used by the component
+export type CityFeature = {
+  type: 'Feature';
+  properties: {
+    name: string;
+    country_code: string;
+    country_name: string;
+    population: number;
+    [key: string]: any;
+  };
+  geometry: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+};
 
 export type ContinentOption = {
   key: ContinentKey;
@@ -49,6 +80,8 @@ export default function MapFilters({
   selectedCountries,
   onToggleCountry,
   visaData,
+  isOpen,
+  onClose,
 }: {
   passportOptions: PassportOption[];
   passportCode: string;
@@ -72,9 +105,9 @@ export default function MapFilters({
   selectedCountries: Set<string>;
   onToggleCountry: (iso2: string) => void;
   visaData?: Map<string, VisaInfo> | null;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
     <>
       <style>{`
@@ -84,19 +117,13 @@ export default function MapFilters({
         }
       `}</style>
       
-      {/* Mobile Toggle Button */}
-      <button 
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="md:hidden absolute top-3 left-3 z-[1000] bg-white/90 backdrop-blur border border-black/10 px-3 py-2 rounded-xl text-sm font-semibold shadow-sm dark:bg-black/60 dark:border-white/10 flex items-center gap-2"
-      >
-        <span aria-hidden="true">⚙️</span> Filters
-      </button>
+      {/* Mobile Toggle Button - Managed by WorldMap but kept for consistency if needed, 
+          actually WorldMap renders its own. But we can keep it hidden here. */}
 
       {/* Main Filter Container */}
       <div 
         className={[
-          "absolute left-3 top-3 z-[1001] w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-xl dark:border-white/10 dark:bg-black/80 transition-transform duration-300 md:translate-x-0 md:block",
+          "absolute left-3 top-3 z-1001 w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-xl dark:border-white/10 dark:bg-black/80 transition-transform duration-300 md:translate-x-0 md:block",
           isOpen ? "translate-x-0" : "-translate-x-[150%]"
         ].join(' ')}
       >
@@ -113,7 +140,7 @@ export default function MapFilters({
           <button
             type="button"
             className="md:hidden text-xs px-2 py-1 rounded-md bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400"
-            onClick={() => setIsOpen(false)}
+            onClick={onClose}
           >
             Close
           </button>

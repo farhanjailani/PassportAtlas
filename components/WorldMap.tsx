@@ -2,20 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet';
+import { AnimatePresence } from 'framer-motion';
 import type { StyleFunction } from 'leaflet';
 import MapFilters, { type AccessToggles, type ContinentKey, type ContinentOption, type CountryGroup, type CountryMode } from './MapFilters';
 import MapLegend from './MapLegend';
+import PlaceImageCarousel from './PlaceImageCarousel';
 
 type PassportOption = { code: string; name: string };
 
-function getIso3(feature: any): string | null {
-  const p = feature?.properties;
+function getIso3(feature?: { properties?: any } | any): string | null {
+  if (!feature) return null;
+  const p = feature.properties;
   const iso = p?.ADM0_A3 ?? p?.ISO_A3 ?? p?.SOV_A3 ?? null;
   return typeof iso === 'string' ? iso : null;
 }
 
-function getIso2(feature: any): string | null {
-  const p = feature?.properties;
+function getIso2(feature?: { properties?: any } | any): string | null {
+  if (!feature) return null;
+  const p = feature.properties;
   const iso = p?.ISO_A2_EH ?? p?.ISO_A2 ?? null;
   if (typeof iso !== 'string') return null;
   const trimmed = iso.trim();
@@ -24,14 +28,16 @@ function getIso2(feature: any): string | null {
   return trimmed;
 }
 
-function getCountryName(feature: any): string {
-  const p = feature?.properties;
+function getCountryName(feature?: { properties?: any } | any): string {
+  if (!feature) return 'Unknown';
+  const p = feature.properties;
   const name = p?.ADMIN ?? p?.NAME ?? p?.NAME_LONG ?? 'Unknown';
   return typeof name === 'string' ? name : 'Unknown';
 }
 
-function getCityName(feature: any): string {
-  const p = feature?.properties;
+function getCityName(feature?: { properties?: any } | any): string {
+  if (!feature) return 'Unknown city';
+  const p = feature.properties;
   const name = p?.name ?? p?.NAME ?? p?.NAMEASCII ?? 'Unknown city';
   return typeof name === 'string' ? name : 'Unknown city';
 }
@@ -112,6 +118,25 @@ type VisaApiResponse = {
   last_updated?: string;
 };
 
+interface CountryFeatureProperties {
+  ADM0_A3?: string;
+  ISO_A3?: string;
+  SOV_A3?: string;
+  ISO_A2_EH?: string;
+  ISO_A2?: string;
+  ADMIN?: string;
+  NAME?: string;
+  NAME_LONG?: string;
+  REGION_UN?: string;
+  SUBREGION?: string;
+  [key: string]: any;
+}
+
+interface CountryFeature extends GeoJSON.Feature<GeoJSON.Geometry, CountryFeatureProperties> {
+  // Override properties to be strictly CountryFeatureProperties
+  properties: CountryFeatureProperties;
+}
+
 export type VisaType = 'VF' | 'EV' | 'VOA' | 'VR' | 'NA';
 export type VisaInfo = { type: VisaType; duration: number | null };
 
@@ -143,6 +168,8 @@ export default function WorldMap() {
   const [countriesGeoJson, setCountriesGeoJson] = useState<any | null>(null);
   const [citiesGeoJson, setCitiesGeoJson] = useState<any | null>(null);
 
+  const [selectedPlaceForImages, setSelectedPlaceForImages] = useState<string | null>(null);
+
   const [passportCode, setPassportCode] = useState('');
   const [access, setAccess] = useState<AccessToggles>({
     visaFree: true,
@@ -164,6 +191,8 @@ export default function WorldMap() {
   const [visaData, setVisaData] = useState<Map<string, VisaInfo> | null>(null);
   const visaCacheRef = useRef<Map<string, Map<string, VisaInfo>>>(new Map());
 
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -182,7 +211,7 @@ export default function WorldMap() {
 
   const iso3ToIso2 = useMemo(() => {
     const m = new Map<string, string>();
-    const features: any[] = countriesGeoJson?.features ?? [];
+    const features: CountryFeature[] = countriesGeoJson?.features ?? [];
     for (const f of features) {
       const iso3 = getIso3(f);
       const iso2 = getIso2(f);
@@ -192,7 +221,7 @@ export default function WorldMap() {
   }, [countriesGeoJson]);
 
   const passportOptions: PassportOption[] = useMemo(() => {
-    const features: any[] = countriesGeoJson?.features ?? [];
+    const features: CountryFeature[] = countriesGeoJson?.features ?? [];
     const m = new Map<string, string>();
     for (const f of features) {
       const code = getIso2(f);
@@ -211,7 +240,7 @@ export default function WorldMap() {
 
   const countryMetaByIso2 = useMemo(() => {
     const m = new Map<string, { name: string; continent: ContinentKey }>();
-    const features: any[] = countriesGeoJson?.features ?? [];
+    const features: CountryFeature[] = countriesGeoJson?.features ?? [];
     for (const f of features) {
       const iso2 = getIso2(f);
       const continent = getContinentKey(f);
@@ -348,7 +377,7 @@ export default function WorldMap() {
 
   const visibleCountriesGeoJson = useMemo(() => {
     const fc = countriesGeoJson;
-    const features: any[] = fc?.features ?? [];
+    const features: CountryFeature[] = fc?.features ?? [];
     if (!fc || !Array.isArray(features)) return null;
 
     const filtered = features.filter((f) => {
@@ -412,13 +441,16 @@ export default function WorldMap() {
     if (!pool.length) return;
 
     const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!pick) return;
     const [lng, lat] = pick.feature.geometry.coordinates;
+    const cityName = getCityName(pick.feature);
     setSelectedCity({
-      name: getCityName(pick.feature),
+      name: cityName,
       lat,
       lng,
       countryIso2: pick.iso2,
     });
+    setSelectedPlaceForImages(`${cityName}, ${countryMetaByIso2.get(pick.iso2)?.name || pick.iso2}`);
   };
 
   const onToggleContinent = (key: ContinentKey) => {
@@ -455,6 +487,7 @@ export default function WorldMap() {
     setCountrySearch('');
     setCountryFilterVersion((v) => v + 1);
     setSelectedCity(null);
+    setSelectedPlaceForImages(null);
   };
 
   const countryGroups: CountryGroup[] = useMemo(() => {
@@ -481,7 +514,7 @@ export default function WorldMap() {
     return groups;
   }, [countryMetaByIso2, countrySearch, selectedContinents]);
 
-  const polygonStyle: StyleFunction<any> = useMemo(() => {
+  const polygonStyle: StyleFunction<CountryFeature> = useMemo(() => {
     return (feature) => {
       let fillColor = '#60a5fa'; // default allowed
       let fillOpacity = 0.18;
@@ -512,7 +545,7 @@ export default function WorldMap() {
   }, [passportCode, visaData]);
 
   const onEachFeature = useMemo(() => {
-    return (feature: any, layer: any) => {
+    return (feature: CountryFeature, layer: any) => {
       const name = getCountryName(feature);
       const iso2 = getIso2(feature);
 
@@ -545,6 +578,14 @@ export default function WorldMap() {
         className: 'country-tooltip',
         opacity: 0.95,
       });
+
+      layer.on({
+        click: (e: any) => {
+          // Prevent underlying map click if needed
+          if (e.originalEvent) e.originalEvent.stopPropagation();
+          setSelectedPlaceForImages(name);
+        },
+      });
     };
   }, [passportCode, visaData]);
 
@@ -573,6 +614,8 @@ export default function WorldMap() {
         selectedCountries={selectedCountries}
         onToggleCountry={onToggleCountry}
         visaData={visaData}
+        isOpen={isFiltersOpen}
+        onClose={() => setIsFiltersOpen(false)}
       />
 
       <MapContainer
@@ -600,7 +643,19 @@ export default function WorldMap() {
         ))}
 
         {selectedCity ? (
-          <CircleMarker center={[selectedCity.lat, selectedCity.lng]} radius={7} pathOptions={{ color: '#ef4444' }}>
+          <CircleMarker
+            center={[selectedCity.lat, selectedCity.lng]}
+            radius={7}
+            pathOptions={{ color: '#ef4444' }}
+            eventHandlers={{
+              click: (e) => {
+                e.originalEvent.stopPropagation();
+                setSelectedPlaceForImages(
+                  `${selectedCity.name}, ${countryMetaByIso2.get(selectedCity.countryIso2)?.name || selectedCity.countryIso2}`
+                );
+              },
+            }}
+          >
             <Tooltip direction="top" offset={[0, -8]} opacity={1} permanent>
               {selectedCity.name}
             </Tooltip>
@@ -610,10 +665,18 @@ export default function WorldMap() {
 
       <button
         type="button"
+        onClick={() => setIsFiltersOpen(true)}
+        className="md:hidden absolute top-3 left-3 z-1000 bg-white/90 backdrop-blur border border-black/10 px-3 py-2 rounded-xl text-sm font-semibold shadow-sm dark:bg-black/60 dark:border-white/10 flex items-center gap-2"
+      >
+        <span aria-hidden="true">⚙️</span> Filters
+      </button>
+
+      <button
+        type="button"
         onClick={onDart}
         disabled={dartDisabled}
         title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
-        className="absolute bottom-8 right-6 z-[1000] w-48 h-48 rounded-full bg-transparent flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+        className="absolute bottom-8 right-6 z-1000 w-48 h-48 rounded-full bg-transparent flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
       >
         <img
           src={withBasePath('/dart-aim-svgrepo-com.svg')}
@@ -624,6 +687,15 @@ export default function WorldMap() {
       </button>
 
       <MapLegend show={!!passportCode} />
+
+      <AnimatePresence>
+        {selectedPlaceForImages && (
+          <PlaceImageCarousel
+            placeName={selectedPlaceForImages}
+            onClose={() => setSelectedPlaceForImages(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
