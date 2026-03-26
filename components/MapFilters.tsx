@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 type PassportOption = { code: string; name: string };
 
 export type AccessToggles = {
@@ -68,6 +70,8 @@ export default function MapFilters({
   selectedCountries: Set<string>;
   onToggleCountry: (iso2: string) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <>
       <style>{`
@@ -76,16 +80,41 @@ export default function MapFilters({
           100% { width: 80%; }
         }
       `}</style>
-      <div className="absolute left-3 top-3 z-[1000] w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-sm dark:border-white/10 dark:bg-black/60">
+      
+      {/* Mobile Toggle Button */}
+      <button 
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="md:hidden absolute top-3 left-3 z-[1000] bg-white/90 backdrop-blur border border-black/10 px-3 py-2 rounded-xl text-sm font-semibold shadow-sm dark:bg-black/60 dark:border-white/10 flex items-center gap-2"
+      >
+        <span aria-hidden="true">⚙️</span> Filters
+      </button>
+
+      {/* Main Filter Container */}
+      <div 
+        className={[
+          "absolute left-3 top-3 z-[1001] w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-xl dark:border-white/10 dark:bg-black/80 transition-transform duration-300 md:translate-x-0 md:block",
+          isOpen ? "translate-x-0" : "-translate-x-[150%]"
+        ].join(' ')}
+      >
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold">Filters</div>
-        <button
-          type="button"
-          className="text-xs px-2 py-1 rounded-md border border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-          onClick={onResetAll}
-        >
-          Reset
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs px-2 py-1 rounded-md border border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+            onClick={onResetAll}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="md:hidden text-xs px-2 py-1 rounded-md bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400"
+            onClick={() => setIsOpen(false)}
+          >
+            Close
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid gap-2">
