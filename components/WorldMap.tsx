@@ -538,7 +538,7 @@ export default function WorldMap() {
         onClick={onDart}
         disabled={dartDisabled}
         title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
-        className="absolute bottom-8 right-6 z-[1000] w-48 h-48 rounded-full bg-white shadow-lg border border-black/10 dark:border-white/10 dark:bg-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+        className="absolute bottom-8 right-6 z-[1000] w-48 h-48 rounded-full bg-transparent flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
       >
         <img
           src={withBasePath('/dart-aim-svgrepo-com.svg')}
