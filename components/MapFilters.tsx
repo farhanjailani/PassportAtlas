@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 type PassportOption = { code: string; name: string };
+import type { VisaInfo } from './WorldMap';
 
 export type AccessToggles = {
   visaFree: boolean;
@@ -47,6 +48,7 @@ export default function MapFilters({
   countryGroups,
   selectedCountries,
   onToggleCountry,
+  visaData,
 }: {
   passportOptions: PassportOption[];
   passportCode: string;
@@ -69,6 +71,7 @@ export default function MapFilters({
   countryGroups: CountryGroup[];
   selectedCountries: Set<string>;
   onToggleCountry: (iso2: string) => void;
+  visaData?: Map<string, VisaInfo> | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -371,6 +374,19 @@ export default function MapFilters({
                               loading="lazy"
                             />
                             <span className="flex-1 text-left truncate">{item.name}</span>
+                            {visaData?.has(item.code) && (
+                              <span
+                                className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                                  visaData.get(item.code)!.type === 'VF' ? 'bg-[#22c55e]/20 text-green-700 dark:text-green-400' :
+                                  visaData.get(item.code)!.type === 'EV' ? 'bg-[#eab308]/20 text-yellow-700 dark:text-yellow-400' :
+                                  visaData.get(item.code)!.type === 'VOA' ? 'bg-[#f97316]/20 text-orange-700 dark:text-orange-400' :
+                                  visaData.get(item.code)!.type === 'VR' ? 'bg-[#ef4444]/20 text-red-700 dark:text-red-400' :
+                                  'bg-[#6b7280]/20 text-gray-700 dark:text-gray-400'
+                                }`}
+                              >
+                                {visaData.get(item.code)!.duration ? `${visaData.get(item.code)!.duration}d` : visaData.get(item.code)!.type}
+                              </span>
+                            )}
                             <span className="text-[10px] opacity-80">{checked ? '✓' : ''}</span>
                           </button>
                         );

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet';
 import type { StyleFunction } from 'leaflet';
 import MapFilters, { type AccessToggles, type ContinentKey, type ContinentOption, type CountryGroup, type CountryMode } from './MapFilters';
+import MapLegend from './MapLegend';
 
 type PassportOption = { code: string; name: string };
 
@@ -111,6 +112,9 @@ type VisaApiResponse = {
   last_updated?: string;
 };
 
+export type VisaType = 'VF' | 'EV' | 'VOA' | 'VR' | 'NA';
+export type VisaInfo = { type: VisaType; duration: number | null };
+
 type CityFeature = {
   type: 'Feature';
   properties?: Record<string, any>;
@@ -157,12 +161,8 @@ export default function WorldMap() {
   const [countryFilterVersion, setCountryFilterVersion] = useState(0);
 
   const [visaStatus, setVisaStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
-  const [visaData, setVisaData] = useState<{ vf: Set<string>; ev: Set<string>; voa: Set<string>; vr: Set<string>; na: Set<string> } | null>(
-    null
-  );
-  const visaCacheRef = useRef<Map<string, { vf: Set<string>; ev: Set<string>; voa: Set<string>; vr: Set<string>; na: Set<string> }>>(
-    new Map()
-  );
+  const [visaData, setVisaData] = useState<Map<string, VisaInfo> | null>(null);
+  const visaCacheRef = useRef<Map<string, Map<string, VisaInfo>>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -248,20 +248,30 @@ export default function WorldMap() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const json = (await res.json()) as VisaApiResponse;
-        const vf = new Set<string>((json.VF ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
-        const ev = new Set<string>((json.EV ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
-        const voa = new Set<string>((json.VOA ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
-        const vr = new Set<string>((json.VR ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
-        const na = new Set<string>((json.NA ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
+        
+        const parsed = new Map<string, VisaInfo>();
+        const addItems = (items: VisaApiItem[] | undefined, type: VisaType) => {
+          if (!items) return;
+          for (const x of items) {
+            if (/^[A-Z]{2}$/.test(x.code)) {
+              parsed.set(x.code, { type, duration: x.duration ?? null });
+            }
+          }
+        };
 
-        const parsed = { vf, ev, voa, vr, na };
+        addItems(json.VF, 'VF');
+        addItems(json.EV, 'EV');
+        addItems(json.VOA, 'VOA');
+        addItems(json.VR, 'VR');
+        addItems(json.NA, 'NA');
+
         visaCacheRef.current.set(passportCode, parsed);
         setVisaData(parsed);
         setVisaStatus('loaded');
       } catch {
         if (!ac.signal.aborted) {
           setVisaStatus('error');
-          setVisaData({ vf: new Set(), ev: new Set(), voa: new Set(), vr: new Set(), na: new Set() });
+          setVisaData(new Map());
         }
       }
     })();
@@ -274,11 +284,17 @@ export default function WorldMap() {
     if (!visaData) return null;
 
     const allowed = new Set<string>();
-    if (access.visaFree) visaData.vf.forEach((x) => allowed.add(x));
-    if (access.eVisa) visaData.ev.forEach((x) => allowed.add(x));
-    if (access.voa) visaData.voa.forEach((x) => allowed.add(x));
-    if (access.visaRequired) visaData.vr.forEach((x) => allowed.add(x));
-    if (access.na) visaData.na.forEach((x) => allowed.add(x));
+    for (const [code, info] of visaData.entries()) {
+      if (
+        (info.type === 'VF' && access.visaFree) ||
+        (info.type === 'EV' && access.eVisa) ||
+        (info.type === 'VOA' && access.voa) ||
+        (info.type === 'VR' && access.visaRequired) ||
+        (info.type === 'NA' && access.na)
+      ) {
+        allowed.add(code);
+      }
+    }
     return allowed;
   }, [passportCode, visaData, access]);
 
@@ -466,14 +482,71 @@ export default function WorldMap() {
   }, [countryMetaByIso2, countrySearch, selectedContinents]);
 
   const polygonStyle: StyleFunction<any> = useMemo(() => {
-    return () => ({
-      color: '#111827',
-      weight: 1,
-      opacity: 0.7,
-      fillColor: '#60a5fa',
-      fillOpacity: 0.18,
-    });
-  }, []);
+    return (feature) => {
+      let fillColor = '#60a5fa'; // default allowed
+      let fillOpacity = 0.18;
+
+      if (passportCode && visaData) {
+        const iso2 = getIso2(feature);
+        if (iso2) {
+          const info = visaData.get(iso2);
+          if (info) {
+            if (info.type === 'VF') fillColor = '#22c55e'; // green-500
+            else if (info.type === 'EV') fillColor = '#eab308'; // yellow-500
+            else if (info.type === 'VOA') fillColor = '#f97316'; // orange-500
+            else if (info.type === 'VR') fillColor = '#ef4444'; // red-500
+            else if (info.type === 'NA') fillColor = '#6b7280'; // gray-500
+            fillOpacity = 0.5; // more opaque for selected passports
+          }
+        }
+      }
+
+      return {
+        color: '#111827',
+        weight: 1,
+        opacity: 0.7,
+        fillColor,
+        fillOpacity,
+      };
+    };
+  }, [passportCode, visaData]);
+
+  const onEachFeature = useMemo(() => {
+    return (feature: any, layer: any) => {
+      const name = getCountryName(feature);
+      const iso2 = getIso2(feature);
+
+      let popupContent = `<div style="font-family: inherit; font-size: 13px;">`;
+      popupContent += `<strong style="display: block; font-size: 14px; margin-bottom: 2px;">${name}</strong>`;
+
+      if (passportCode && visaData && iso2) {
+        const info = visaData.get(iso2);
+        if (info) {
+          let typeLabel: string = info.type;
+          if (info.type === 'VF') typeLabel = 'Visa-Free';
+          else if (info.type === 'EV') typeLabel = 'eVisa';
+          else if (info.type === 'VOA') typeLabel = 'Visa on Arrival';
+          else if (info.type === 'VR') typeLabel = 'Visa Required';
+          else if (info.type === 'NA') typeLabel = 'Not Admitted';
+
+          popupContent += `<div>Access: <b>${typeLabel}</b></div>`;
+          if (info.duration != null) {
+            popupContent += `<div>Duration: <b>${info.duration} days</b></div>`;
+          }
+        } else {
+          popupContent += `<div>Access: <b>Unknown</b></div>`;
+        }
+      }
+
+      popupContent += `</div>`;
+
+      layer.bindTooltip(popupContent, {
+        sticky: true,
+        className: 'country-tooltip',
+        opacity: 0.95,
+      });
+    };
+  }, [passportCode, visaData]);
 
   return (
     <div className="relative" style={{ height: 'calc(100vh - 53px)', width: '100%' }}>
@@ -499,6 +572,7 @@ export default function WorldMap() {
         countryGroups={countryGroups}
         selectedCountries={selectedCountries}
         onToggleCountry={onToggleCountry}
+        visaData={visaData}
       />
 
       <MapContainer
@@ -521,6 +595,7 @@ export default function WorldMap() {
             key={`${geoJsonLayerKey}|wrap:${layer.key}`}
             data={layer.data}
             style={polygonStyle}
+            onEachFeature={onEachFeature}
           />
         ))}
 
@@ -547,6 +622,8 @@ export default function WorldMap() {
           draggable={false}
         />
       </button>
+
+      <MapLegend show={!!passportCode} />
     </div>
   );
 }
