@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet';
 import type { StyleFunction } from 'leaflet';
-import MapFilters, { type AccessToggles } from './MapFilters';
+import MapFilters, { type AccessToggles, type ContinentKey, type ContinentOption, type CountryGroup, type CountryMode } from './MapFilters';
 
 type PassportOption = { code: string; name: string };
 
@@ -67,6 +67,38 @@ function shiftGeometryLng(geometry: any, deltaLng: number): any {
   return geometry;
 }
 
+const CONTINENT_OPTIONS: ContinentOption[] = [
+  { key: 'Europe', label: 'Europe', emoji: '🇪🇺', colorClass: 'bg-blue-700 text-white' },
+  { key: 'Asia', label: 'Asia', emoji: '🌏', colorClass: 'bg-emerald-700 text-white' },
+  { key: 'Africa', label: 'Africa', emoji: '🌍', colorClass: 'bg-orange-700 text-white' },
+  { key: 'North America', label: 'North America', emoji: '🌎', colorClass: 'bg-purple-700 text-white' },
+  { key: 'South America', label: 'South America', emoji: '🌎', colorClass: 'bg-teal-700 text-white' },
+  { key: 'Oceania', label: 'Oceania', emoji: '🏝️', colorClass: 'bg-indigo-700 text-white' },
+];
+
+const ALL_CONTINENT_KEYS: ContinentKey[] = CONTINENT_OPTIONS.map((c) => c.key);
+
+function getContinentKey(feature: any): ContinentKey | null {
+  const p = feature?.properties;
+  const region = p?.REGION_UN;
+  const subregion = p?.SUBREGION;
+
+  if (typeof region !== 'string') return null;
+  if (region === 'Europe') return 'Europe';
+  if (region === 'Africa') return 'Africa';
+  if (region === 'Asia') return 'Asia';
+  if (region === 'Oceania') return 'Oceania';
+
+  if (region === 'Americas') {
+    if (typeof subregion === 'string' && subregion.toLowerCase().includes('south america')) {
+      return 'South America';
+    }
+    return 'North America';
+  }
+
+  return null;
+}
+
 type VisaApiItem = { code: string; name?: string; duration?: number | null };
 type VisaApiResponse = {
   code: string; // passport ISO2
@@ -112,6 +144,14 @@ export default function WorldMap() {
     eVisa: true,
     visaRequired: false,
   });
+
+  const [countryMode, setCountryModeState] = useState<CountryMode>('block');
+  const [selectedContinents, setSelectedContinents] = useState<Set<ContinentKey>>(
+    () => new Set(ALL_CONTINENT_KEYS)
+  );
+  const [selectedCountries, setSelectedCountries] = useState<Set<string>>(() => new Set());
+  const [countrySearch, setCountrySearch] = useState('');
+  const [countryFilterVersion, setCountryFilterVersion] = useState(0);
 
   const [visaStatus, setVisaStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [visaData, setVisaData] = useState<{ vf: Set<string>; ev: Set<string>; vr: Set<string> } | null>(
@@ -160,6 +200,18 @@ export default function WorldMap() {
 
     const seen = new Set<string>();
     return list.filter((x) => (seen.has(x.code) ? false : (seen.add(x.code), true)));
+  }, [countriesGeoJson]);
+
+  const countryMetaByIso2 = useMemo(() => {
+    const m = new Map<string, { name: string; continent: ContinentKey }>();
+    const features: any[] = countriesGeoJson?.features ?? [];
+    for (const f of features) {
+      const iso2 = getIso2(f);
+      const continent = getContinentKey(f);
+      if (!iso2 || !continent) continue;
+      m.set(iso2, { name: getCountryName(f), continent });
+    }
+    return m;
   }, [countriesGeoJson]);
 
   useEffect(() => {
@@ -217,13 +269,38 @@ export default function WorldMap() {
     return allowed;
   }, [passportCode, visaData, access]);
 
-  const activeIso2 = useMemo(() => {
-    // If no passport selected, "active" = all countries with ISO2 codes.
-    if (!passportCode) {
-      return new Set(passportOptions.map((p) => p.code));
-    }
+  const baseActiveIso2 = useMemo(() => {
+    // Visa-only when passport is selected, otherwise all countries.
+    if (!passportCode) return new Set(passportOptions.map((p) => p.code));
     return allowedIso2 ?? new Set<string>();
   }, [passportCode, allowedIso2, passportOptions]);
+
+  const continentAllowedIso2 = useMemo(() => {
+    const next = new Set<string>();
+    for (const code of baseActiveIso2) {
+      const meta = countryMetaByIso2.get(code);
+      if (!meta) continue;
+      if (selectedContinents.has(meta.continent)) next.add(code);
+    }
+    return next;
+  }, [baseActiveIso2, countryMetaByIso2, selectedContinents]);
+
+  const finalActiveIso2 = useMemo(() => {
+    if (countryMode === 'target') {
+      const next = new Set<string>();
+      for (const code of continentAllowedIso2) {
+        if (selectedCountries.has(code)) next.add(code);
+      }
+      return next;
+    }
+
+    // block mode (default)
+    const next = new Set<string>();
+    for (const code of continentAllowedIso2) {
+      if (!selectedCountries.has(code)) next.add(code);
+    }
+    return next;
+  }, [continentAllowedIso2, countryMode, selectedCountries]);
 
   const geoJsonLayerKey = useMemo(() => {
     const parts = [
@@ -232,26 +309,24 @@ export default function WorldMap() {
       access.eVisa ? 'EV1' : 'EV0',
       access.visaRequired ? 'VR1' : 'VR0',
       visaStatus,
+      `countryMode:${countryMode}`,
+      `countryV:${countryFilterVersion}`,
     ];
     return parts.join('|');
-  }, [passportCode, access, visaStatus]);
+  }, [passportCode, access, visaStatus, countryMode, countryFilterVersion]);
 
   const visibleCountriesGeoJson = useMemo(() => {
     const fc = countriesGeoJson;
     const features: any[] = fc?.features ?? [];
     if (!fc || !Array.isArray(features)) return null;
 
-    // When no passport is selected, show all countries (no filtering).
-    if (!passportCode) return fc;
-
-    // When a passport is selected, show only currently-allowed countries.
-    if (!allowedIso2) return { ...fc, features: [] };
     const filtered = features.filter((f) => {
       const iso2 = getIso2(f);
-      return iso2 ? allowedIso2.has(iso2) : false;
+      return iso2 ? finalActiveIso2.has(iso2) : false;
     });
+
     return { ...fc, features: filtered };
-  }, [countriesGeoJson, passportCode, allowedIso2]);
+  }, [countriesGeoJson, finalActiveIso2]);
 
   const repeatingCountriesLayers = useMemo(() => {
     if (!visibleCountriesGeoJson) return [];
@@ -288,8 +363,8 @@ export default function WorldMap() {
   }, [selectedCity]);
 
   const dartDisabled = useMemo(() => {
-    return !citiesGeoJson || activeIso2.size === 0;
-  }, [citiesGeoJson, activeIso2.size]);
+    return !citiesGeoJson || finalActiveIso2.size === 0;
+  }, [citiesGeoJson, finalActiveIso2.size]);
 
   const onDart = () => {
     const features: CityFeature[] = citiesGeoJson?.features ?? [];
@@ -300,7 +375,7 @@ export default function WorldMap() {
       const iso3 = f?.properties?.adm0_a3 ?? f?.properties?.ADM0_A3 ?? null;
       const iso2 = typeof iso3 === 'string' ? iso3ToIso2.get(iso3) : undefined;
       if (!iso2) continue;
-      if (!activeIso2.has(iso2)) continue;
+      if (!finalActiveIso2.has(iso2)) continue;
       pool.push({ feature: f, iso2 });
     }
     if (!pool.length) return;
@@ -315,6 +390,66 @@ export default function WorldMap() {
     });
   };
 
+  const onToggleContinent = (key: ContinentKey) => {
+    setSelectedContinents((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setCountryFilterVersion((v) => v + 1);
+  };
+
+  const onToggleCountry = (iso2: string) => {
+    setSelectedCountries((prev) => {
+      const next = new Set(prev);
+      if (next.has(iso2)) next.delete(iso2);
+      else next.add(iso2);
+      return next;
+    });
+    setCountryFilterVersion((v) => v + 1);
+  };
+
+  const onSetCountryMode = (mode: CountryMode) => {
+    setCountryModeState(mode);
+    setCountryFilterVersion((v) => v + 1);
+  };
+
+  const onResetAll = () => {
+    setPassportCode('');
+    setAccess({ visaFree: true, eVisa: true, visaRequired: false });
+    setCountryModeState('block');
+    setSelectedContinents(new Set(ALL_CONTINENT_KEYS));
+    setSelectedCountries(new Set());
+    setCountrySearch('');
+    setCountryFilterVersion((v) => v + 1);
+    setSelectedCity(null);
+  };
+
+  const countryGroups: CountryGroup[] = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase();
+    const groups: CountryGroup[] = [];
+
+    // Nothing selected -> nothing to show.
+    if (selectedContinents.size === 0) return groups;
+
+    for (const cont of CONTINENT_OPTIONS) {
+      if (!selectedContinents.has(cont.key)) continue;
+
+      const items: Array<{ code: string; name: string }> = [];
+      for (const [code, meta] of countryMetaByIso2.entries()) {
+        if (meta.continent !== cont.key) continue;
+        if (q && !meta.name.toLowerCase().includes(q)) continue;
+        items.push({ code, name: meta.name });
+      }
+
+      items.sort((a, b) => a.name.localeCompare(b.name));
+      if (items.length > 0) groups.push({ continent: cont.key, items });
+    }
+
+    return groups;
+  }, [countryMetaByIso2, countrySearch, selectedContinents]);
+
   const polygonStyle: StyleFunction<any> = useMemo(() => {
     return () => ({
       color: '#111827',
@@ -326,7 +461,7 @@ export default function WorldMap() {
   }, []);
 
   return (
-    <div className="relative" style={{ height: '100vh', width: '100%' }}>
+    <div className="relative" style={{ height: 'calc(100vh - 53px)', width: '100%' }}>
       <MapFilters
         passportOptions={passportOptions}
         passportCode={passportCode}
@@ -338,6 +473,17 @@ export default function WorldMap() {
         dartDisabled={dartDisabled}
         selectedCityLabel={selectedCityLabel}
         dartIconSrc={withBasePath('/dart-aim-svgrepo-com.svg')}
+        onResetAll={onResetAll}
+        continentOptions={CONTINENT_OPTIONS}
+        selectedContinents={selectedContinents}
+        onToggleContinent={onToggleContinent}
+        countryMode={countryMode}
+        setCountryMode={onSetCountryMode}
+        countrySearch={countrySearch}
+        setCountrySearch={setCountrySearch}
+        countryGroups={countryGroups}
+        selectedCountries={selectedCountries}
+        onToggleCountry={onToggleCountry}
       />
 
       <MapContainer
@@ -371,6 +517,21 @@ export default function WorldMap() {
           </CircleMarker>
         ) : null}
       </MapContainer>
+
+      <button
+        type="button"
+        onClick={onDart}
+        disabled={dartDisabled}
+        title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
+        className="absolute bottom-8 right-6 z-[1000] w-16 h-16 rounded-full bg-white shadow-lg border border-black/10 dark:border-white/10 dark:bg-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+      >
+        <img
+          src={withBasePath('/dart-aim-svgrepo-com.svg')}
+          alt="Dart"
+          className="w-8 h-8"
+          draggable={false}
+        />
+      </button>
     </div>
   );
 }
