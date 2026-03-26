@@ -168,19 +168,7 @@ export default function MapFilters({
                 checked={access.visaFree}
                 onChange={(e) => setAccess({ ...access, visaFree: e.target.checked })}
               />
-              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
-            </div>
-          </label>
-          <label className="flex items-center justify-between cursor-pointer text-sm">
-            <span className="opacity-90">eVisa</span>
-            <div className="relative inline-flex items-center">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={access.eVisa}
-                onChange={(e) => setAccess({ ...access, eVisa: e.target.checked })}
-              />
-              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:bg-black/20 dark:peer-checked:bg-white/20 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white peer-checked:after:bg-green-500 after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner"></div>
             </div>
           </label>
           <label className="flex items-center justify-between cursor-pointer text-sm">
@@ -192,7 +180,19 @@ export default function MapFilters({
                 checked={access.voa}
                 onChange={(e) => setAccess({ ...access, voa: e.target.checked })}
               />
-              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:bg-black/20 dark:peer-checked:bg-white/20 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white peer-checked:after:bg-yellow-500 after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner"></div>
+            </div>
+          </label>
+          <label className="flex items-center justify-between cursor-pointer text-sm">
+            <span className="opacity-90">eVisa</span>
+            <div className="relative inline-flex items-center">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={access.eVisa}
+                onChange={(e) => setAccess({ ...access, eVisa: e.target.checked })}
+              />
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:bg-black/20 dark:peer-checked:bg-white/20 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white peer-checked:after:bg-orange-500 after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner"></div>
             </div>
           </label>
           <label className="flex items-center justify-between cursor-pointer text-sm">
@@ -204,7 +204,7 @@ export default function MapFilters({
                 checked={access.visaRequired}
                 onChange={(e) => setAccess({ ...access, visaRequired: e.target.checked })}
               />
-              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:bg-black/20 dark:peer-checked:bg-white/20 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white peer-checked:after:bg-red-500 after:rounded-full after:h-4 after:w-4 after:transition-all shadow-inner"></div>
             </div>
           </label>
         {/* 
@@ -378,8 +378,8 @@ export default function MapFilters({
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
                                   visaData.get(item.code)!.type === 'VF' ? 'bg-[#22c55e]/20 text-green-700 dark:text-green-400' :
-                                  visaData.get(item.code)!.type === 'EV' ? 'bg-[#eab308]/20 text-yellow-700 dark:text-yellow-400' :
-                                  visaData.get(item.code)!.type === 'VOA' ? 'bg-[#f97316]/20 text-orange-700 dark:text-orange-400' :
+                                  visaData.get(item.code)!.type === 'EV' ? 'bg-[#f97316]/20 text-orange-700 dark:text-orange-400' :
+                                  visaData.get(item.code)!.type === 'VOA' ? 'bg-[#eab308]/20 text-yellow-700 dark:text-yellow-400' :
                                   visaData.get(item.code)!.type === 'VR' ? 'bg-[#ef4444]/20 text-red-700 dark:text-red-400' :
                                   'bg-[#6b7280]/20 text-gray-700 dark:text-gray-400'
                                 }`}

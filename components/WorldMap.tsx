@@ -492,8 +492,8 @@ export default function WorldMap() {
           const info = visaData.get(iso2);
           if (info) {
             if (info.type === 'VF') fillColor = '#22c55e'; // green-500
-            else if (info.type === 'EV') fillColor = '#eab308'; // yellow-500
-            else if (info.type === 'VOA') fillColor = '#f97316'; // orange-500
+            else if (info.type === 'EV') fillColor = '#f97316'; // orange-500
+            else if (info.type === 'VOA') fillColor = '#eab308'; // yellow-500
             else if (info.type === 'VR') fillColor = '#ef4444'; // red-500
             else if (info.type === 'NA') fillColor = '#6b7280'; // gray-500
             fillOpacity = 0.5; // more opaque for selected passports
