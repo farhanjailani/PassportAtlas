@@ -190,16 +190,20 @@ export default function WorldMap() {
 
   const passportOptions: PassportOption[] = useMemo(() => {
     const features: any[] = countriesGeoJson?.features ?? [];
-    const list = features
-      .map((f) => ({
-        code: getIso2(f) ?? '',
-        name: getCountryName(f),
-      }))
-      .filter((x) => x.code)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const m = new Map<string, string>();
+    for (const f of features) {
+      const code = getIso2(f);
+      if (code && !m.has(code)) {
+        m.set(code, getCountryName(f));
+      }
+    }
 
-    const seen = new Set<string>();
-    return list.filter((x) => (seen.has(x.code) ? false : (seen.add(x.code), true)));
+    const list: PassportOption[] = [];
+    for (const [code, name] of m.entries()) {
+      list.push({ code, name });
+    }
+
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [countriesGeoJson]);
 
   const countryMetaByIso2 = useMemo(() => {
@@ -209,7 +213,9 @@ export default function WorldMap() {
       const iso2 = getIso2(f);
       const continent = getContinentKey(f);
       if (!iso2 || !continent) continue;
-      m.set(iso2, { name: getCountryName(f), continent });
+      if (!m.has(iso2)) {
+        m.set(iso2, { name: getCountryName(f), continent });
+      }
     }
     return m;
   }, [countriesGeoJson]);
