@@ -5,7 +5,9 @@ type PassportOption = { code: string; name: string };
 export type AccessToggles = {
   visaFree: boolean;
   eVisa: boolean;
+  voa: boolean;
   visaRequired: boolean;
+  na: boolean;
 };
 
 export type ContinentKey = 'Europe' | 'Asia' | 'Africa' | 'North America' | 'South America' | 'Oceania';
@@ -67,7 +69,14 @@ export default function MapFilters({
   onToggleCountry: (iso2: string) => void;
 }) {
   return (
-    <div className="absolute left-3 top-3 z-[1000] w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-sm dark:border-white/10 dark:bg-black/60">
+    <>
+      <style>{`
+        @keyframes visaProgressAnim {
+          0% { width: 0%; }
+          100% { width: 80%; }
+        }
+      `}</style>
+      <div className="absolute left-3 top-3 z-[1000] w-[min(360px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-black/10 bg-white/90 backdrop-blur px-3 py-3 shadow-sm dark:border-white/10 dark:bg-black/60">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold">Filters</div>
         <button
@@ -143,6 +152,18 @@ export default function MapFilters({
             </div>
           </label>
           <label className="flex items-center justify-between cursor-pointer text-sm">
+            <span className="opacity-90">Visa on arrival</span>
+            <div className="relative inline-flex items-center">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={access.voa}
+                onChange={(e) => setAccess({ ...access, voa: e.target.checked })}
+              />
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+            </div>
+          </label>
+          <label className="flex items-center justify-between cursor-pointer text-sm">
             <span className="opacity-90">Visa required</span>
             <div className="relative inline-flex items-center">
               <input
@@ -154,15 +175,48 @@ export default function MapFilters({
               <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
             </div>
           </label>
+        {/* 
+          <label className="flex items-center justify-between cursor-pointer text-sm">
+            <span className="opacity-90">No admission</span>
+            <div className="relative inline-flex items-center">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={access.na}
+                onChange={(e) => setAccess({ ...access, na: e.target.checked })}
+              />
+              <div className="w-9 h-5 bg-black/10 rounded-full peer dark:bg-black/40 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+            </div>
+          </label>
+        */}
         </fieldset>
 
         {passportCode ? (
-          <div className="text-xs rounded-md border border-black/10 bg-black/[0.03] px-2 py-2 dark:border-white/10 dark:bg-white/[0.06]">
-            {visaStatus === 'loading' ? 'Loading visa access…' : null}
-            {visaStatus === 'loaded' ? 'Visa access loaded.' : null}
-            {visaStatus === 'error'
-              ? 'Could not load visa access (network/CORS/server error).'
-              : null}
+          <div className="relative overflow-hidden text-xs rounded-md border border-black/10 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.06]">
+            <div
+              className={`absolute inset-y-0 left-0 transition-all ${
+                visaStatus === 'loaded'
+                  ? 'w-full duration-500 ease-out bg-green-500/40 dark:bg-green-500/50'
+                  : visaStatus === 'error'
+                  ? 'w-full duration-500 ease-out bg-red-500/40 dark:bg-red-500/50'
+                  : ''
+              }`}
+              style={
+                visaStatus === 'loading'
+                  ? {
+                      animation: 'visaProgressAnim 4s ease-out forwards',
+                      backgroundColor: 'rgba(128,128,128,0.25)',
+                    }
+                  : {}
+              }
+            />
+            <div className="relative z-10 px-2 py-2">
+              {visaStatus === 'loading' ? 'Loading visa access…' : null}
+              {visaStatus === 'loaded' ? 'Visa access loaded.' : null}
+              {visaStatus === 'error'
+                ? 'Could not load visa access (network/CORS/server error).'
+                : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -254,7 +308,7 @@ export default function MapFilters({
           </div>
         </div>
 
-        <div className="mt-3 max-h-64 overflow-y-auto pr-1">
+        <div className="mt-3 pb-2">
           {countryGroups.length === 0 ? (
             <div className="text-[11px] opacity-70">No countries match.</div>
           ) : (
@@ -301,6 +355,7 @@ export default function MapFilters({
         </div>
       </div>
     </div>
+    </>
   );
 }
 

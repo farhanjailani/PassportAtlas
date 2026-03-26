@@ -107,6 +107,7 @@ type VisaApiResponse = {
   EV?: VisaApiItem[]; // eVisa
   VOA?: VisaApiItem[];
   VR?: VisaApiItem[];
+  NA?: VisaApiItem[];
   last_updated?: string;
 };
 
@@ -142,7 +143,9 @@ export default function WorldMap() {
   const [access, setAccess] = useState<AccessToggles>({
     visaFree: true,
     eVisa: true,
+    voa: true,
     visaRequired: false,
+    na: false,
   });
 
   const [countryMode, setCountryModeState] = useState<CountryMode>('block');
@@ -154,10 +157,10 @@ export default function WorldMap() {
   const [countryFilterVersion, setCountryFilterVersion] = useState(0);
 
   const [visaStatus, setVisaStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
-  const [visaData, setVisaData] = useState<{ vf: Set<string>; ev: Set<string>; vr: Set<string> } | null>(
+  const [visaData, setVisaData] = useState<{ vf: Set<string>; ev: Set<string>; voa: Set<string>; vr: Set<string>; na: Set<string> } | null>(
     null
   );
-  const visaCacheRef = useRef<Map<string, { vf: Set<string>; ev: Set<string>; vr: Set<string> }>>(
+  const visaCacheRef = useRef<Map<string, { vf: Set<string>; ev: Set<string>; voa: Set<string>; vr: Set<string>; na: Set<string> }>>(
     new Map()
   );
 
@@ -247,16 +250,18 @@ export default function WorldMap() {
         const json = (await res.json()) as VisaApiResponse;
         const vf = new Set<string>((json.VF ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
         const ev = new Set<string>((json.EV ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
+        const voa = new Set<string>((json.VOA ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
         const vr = new Set<string>((json.VR ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
+        const na = new Set<string>((json.NA ?? []).map((x) => x.code).filter((c) => /^[A-Z]{2}$/.test(c)));
 
-        const parsed = { vf, ev, vr };
+        const parsed = { vf, ev, voa, vr, na };
         visaCacheRef.current.set(passportCode, parsed);
         setVisaData(parsed);
         setVisaStatus('loaded');
       } catch {
         if (!ac.signal.aborted) {
           setVisaStatus('error');
-          setVisaData({ vf: new Set(), ev: new Set(), vr: new Set() });
+          setVisaData({ vf: new Set(), ev: new Set(), voa: new Set(), vr: new Set(), na: new Set() });
         }
       }
     })();
@@ -271,7 +276,9 @@ export default function WorldMap() {
     const allowed = new Set<string>();
     if (access.visaFree) visaData.vf.forEach((x) => allowed.add(x));
     if (access.eVisa) visaData.ev.forEach((x) => allowed.add(x));
+    if (access.voa) visaData.voa.forEach((x) => allowed.add(x));
     if (access.visaRequired) visaData.vr.forEach((x) => allowed.add(x));
+    if (access.na) visaData.na.forEach((x) => allowed.add(x));
     return allowed;
   }, [passportCode, visaData, access]);
 
@@ -313,7 +320,9 @@ export default function WorldMap() {
       passportCode || 'ALL',
       access.visaFree ? 'VF1' : 'VF0',
       access.eVisa ? 'EV1' : 'EV0',
+      access.voa ? 'VOA1' : 'VOA0',
       access.visaRequired ? 'VR1' : 'VR0',
+      access.na ? 'NA1' : 'NA0',
       visaStatus,
       `countryMode:${countryMode}`,
       `countryV:${countryFilterVersion}`,
@@ -423,7 +432,7 @@ export default function WorldMap() {
 
   const onResetAll = () => {
     setPassportCode('');
-    setAccess({ visaFree: true, eVisa: true, visaRequired: false });
+    setAccess({ visaFree: true, eVisa: true, voa: true, visaRequired: false, na: false });
     setCountryModeState('block');
     setSelectedContinents(new Set(ALL_CONTINENT_KEYS));
     setSelectedCountries(new Set());
@@ -529,12 +538,12 @@ export default function WorldMap() {
         onClick={onDart}
         disabled={dartDisabled}
         title={dartDisabled ? 'Select a passport + filters first' : 'Pick a random city'}
-        className="absolute bottom-8 right-6 z-[1000] w-16 h-16 rounded-full bg-white shadow-lg border border-black/10 dark:border-white/10 dark:bg-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+        className="absolute bottom-8 right-6 z-[1000] w-48 h-48 rounded-full bg-white shadow-lg border border-black/10 dark:border-white/10 dark:bg-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
       >
         <img
           src={withBasePath('/dart-aim-svgrepo-com.svg')}
           alt="Dart"
-          className="w-8 h-8"
+          className="w-24 h-24"
           draggable={false}
         />
       </button>
